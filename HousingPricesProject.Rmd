@@ -1,0 +1,162 @@
+---
+ztitle: "HousingPricesProject"
+author: "Nathan Chan"
+date: "2023-09-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r Reading in Data and Setting up}
+library("car")
+housing <- read.csv("kc_housing.csv", stringsAsFactors = TRUE)
+```
+
+This data set includes the following variables:
+
+- `id`: unique ID
+- `date`: date of the sale
+- `price`: selling price of the house
+- `bedrooms`: number of bedrooms
+- `bathrooms`: number of bathrooms 
+- `living`: size of the interior living space (in square feet)
+- `lot`: size of the lot (in square feet)
+- `floors`: number of floors
+- `waterfront`: is the housing located on the waterfront? (yes or no)
+- `view`: a *numeric* rating of 1 to 5 for the quality of the view (higher = better)
+- `condition`: the condition of the house (neutral, good, or great)
+- `above`: size of the interior living space above ground level (in square feet)
+- `basement`: size of the interior living space below ground level (in square feet)
+- `year`: original year of construction
+- `zipcode`: zip code
+- `living15`: average size of the interior living space for the 15 nearest neighbors (in square feet)
+- `lot15`: average size of the lot for the 15 nearest neighbors (in square feet)
+- `renovated`: was the house renovated in the previous 25 years? (yes or no)
+
+```{r Histograms of Price, Lot Size (sqft), Basement Size (sqft), and Living Room Size (sqft)}
+hist(housing$price)
+hist(housing$lot)
+hist(housing$basement)
+hist(housing$living)
+```
+Looking at histograms are extremely useful as it gives a visualization of the distribution of the observations for each variable. By understanding the distribution, we are able to look at the spread and determine outliers which can indicate potential usage of transformations. All three histograms appear to be somewhat right-skewed which leads to the usage of a logarithmic transformation. This will reduced the skewedness and make the data appear more symmetrical or normal. Compression of large values reduces their influence on the distribution. This transformation helps meet the assumptions of certain statistical methods and enhances data interpretability.
+
+```{r Individual Histograms of log(Variables)}
+hist(log(housing$lot))
+hist(log(housing$basement))
+hist(log(housing$living))
+```
+
+In order to conduct a log transformation, it is necessary to make sure that there are no values with a numerical value of 0, as it is not possible to do log transformations on values less than or equal to zero. Fortunately, there is the easy fix of incrementing all values by 1 as this change will not have a grand effect on the dataset. 
+```{r}
+sum(housing$basement == 1)
+```
+
+
+```{r}
+lm1<- lm(log(price) ~ log(lot) + log(basement) + log(living), data = housing)
+summary(lm1)
+```
+After looking at the first iteration of the model, I see that the Multiple R-squared value of 0.5519 indicates that approximately 55.19% of the variability in the response variable is explained by the independent variables included in the model and that the Adjusted R-squared value of 0.5494 suggests that, after adjusting for the number of predictors, the model still explains about 54.94% of the variability in the response variable. With this being said, this is not a very good model and the lower Adjusted R-squared is actually an indication that there may be overfitting. It might be time to adjust the model... 
+
+Something that I have learned is that your neighbor's and their houses affect the property value of your house. Nearby houses with larger sizes and higher property values can have a positive spillover effect on your property's value. These larger houses may contribute to the overall appeal of the neighborhood, making it more desirable and potentially leading to higher property values for all homes in the area. I think the next step is to take a look at the sizes of neighboring houses. 
+
+```{r}
+plot(log(price) ~ living15,
+     data = housing,
+     col = c("lightcoral"),
+     pch = c(1),
+     xlab = "Living Space Size of 15 neighbors (sqft)",
+     ylab = "price",
+     main = "Scatterplot of Price vs Living Space Size of 15 neighbors (sqft)")
+```
+
+```{r}
+lm2<- lm(log(price) ~ log(lot) + log(basement) + log(living) + living15, data = housing)
+summary(lm2)
+```
+
+There is an improvement in the Multiple R-squared and the Adjusted R-squared value which is an indication that inclusion of the average size of the interior living space for the 15 nearest neighbors is beneficial.
+
+Let's introduce some new variables, houses on the waterfront tend to be more expensive than houses that are not on the water. This could be due to multiple reasons, such as the scenic views or the opportunity for recreation. The waterfront variable is a qualitative variable that indicates whether or not a house is located on the water or not. 
+
+```{r}
+freq_waterfront <- table(housing$waterfront)
+freq_waterfront
+
+housing$log_price <- log(housing$price)
+box_waterfront <- boxplot(housing$log_price ~ housing$waterfront, 
+          main="Price by Waterfront Location",
+          xlab="Waterfront Location", 
+          ylab="log(Price)",
+          col=c("lightblue", "lightcoral"))
+box_waterfront
+```
+Okay, we see that there is about a 70/30 split between being on a waterfront vs. not being on a waterfront. We also see that the median price of a house on a waterfront location is relatively higher than the a house that is not on a waterfront. Let's add it to our model. 
+
+```{r}
+lm2<- lm(log(price) ~ log(lot) + log(basement) + log(living) + living15 +waterfront, data = housing)
+summary(lm2)
+```
+Okay! We like to see this improvement in the Multiple R-squared. Unfortunately, the adujsted R-squared value is still lower than the Multiple R-Squared value. There is still evidence of overfitting, but nonetheless this is a step in the right direction.
+
+When thinking about nice views, I personally think that looking out into the water and maybe watching the sunset adds to how nice a view is. I might add the variable view to our model as well. 
+
+```{r}
+box_view <- boxplot(housing$log_price ~ housing$view, 
+          main="Price by View",
+          xlab="View", 
+          ylab="log(Price)",
+          col=c("lightblue", "lightcoral", "lightyellow", "lightgreen", "orchid"))
+box_view
+```
+
+```{r}
+lm2<- lm(log(price) ~ log(lot) + log(basement) + log(living) + living15 + view + waterfront, data = housing)
+summary(lm2)
+```
+
+This has me thinking, are there any interactions that are occurring between our variables we currently have in the model? When interactions are included in a linear model, it means that the relationship between one predictor variable and the response variable depends on the value of another predictor variable. Which variables do I think could have an interaction. Personally, I think that being on a waterfront contributes to the view. Maybe the houses with a lower rated view are not on a waterfront.
+
+```{r}
+plot(log(price) ~ view,
+     data = housing,
+     col = c("lightblue", "lightcoral")[waterfront],
+     pch = c(1, 2)[waterfront],
+     xlab = "Rating of View",
+     ylab = "log(Price)",
+     main = "Scatterplot of Price vs Number of Rating of View Differing by Waterfront Location")
+
+legend(x = 1.3, y = 15.6,
+       legend = levels(housing$renovated),
+       col = c("lightblue", "lightcoral"),
+       pch = c(1, 2))
+```
+
+It appears that houses that have higher ratings in regard to the view are also on the waterfront. Now, I think we should investigate further by adding the different slopes for an interaction.
+
+```{r}
+lm_interaction<- lm(log(price) ~ log(lot) + log(basement) + log(living) + living15 + view*waterfront, data = housing)
+summary(lm_interaction)
+```
+We can see that there is a very small change in slope when looking at inclusion of the interaction. In addition to this, the p-value of view:waterfrontyes is 0.8783 which indicates that this interaction is not statistically significant. We will proceed with not adding an interaction term. 
+
+In terms of interaction terms that we could take a look at, in my personal experience, having more bathrooms in an apartment or house is beneficial as I have come from sharing a bathroom with 3 different people in my college apartment. This makes it a little more difficult to get ready in the morning, or if I had to use the bathroom when someone was in there, I would have to wait or use the other one which was shared by 3 others. 
+
+```{r}
+lm3<- lm(log(price) ~ log(lot) + log(basement) + log(living) + living15 + view + waterfront + bathrooms*bedrooms, data = housing)
+summary(lm3)
+```
+
+Taking a quick look at the summary of this new model with the interaction between bathroom and bedroom counts, we see that the interaction term has a p-value of 0.000313 which is indicative of being statistically significant. We also see the Multiple R-squared increasing slightly, although still slightly above the adjusted R-squared. 
+
+I think we have added a good amount of variables and are now able to explain about 76.68% of the variability in the response variable with this given model. The next step is to test for multicollinearity, which is a statistical phenomenon that occurs when two or more independent variables in a regression model are highly correlated with each other. In other words, it's a situation where one predictor variable can be linearly predicted from one or more of the other predictor variables with a high degree of accuracy. The VIF function measures how much the variance of the estimated coefficients is inflated due to multicollinearity. 
+
+```{r}
+vif(lm3)
+```
+
+I see that bathrooms:bedrooms has a VIF value of 18.62. This suggests that there is a high degree of linear correlation between bathrooms:bedrooms and other predictor variables. If I had to make a best prediction, I would assume that it would be correlated with the bathrooms or bedrooms predictor. This makes sense because homes typically have a number of bathrooms the scale with the increasing number of bedrooms. As VIF is simply a tool and not the law, I am going to keep this interaction in the model as it does not make sense for a house to have 10 bedrooms and 1 bathroom or vice versa.
