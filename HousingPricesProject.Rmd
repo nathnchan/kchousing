@@ -209,7 +209,6 @@ ggplot(data = housing3, aes(x = basement, fill = zipcodeArea)) +
   theme(axis.title = element_text())
 ```
 
-
 ```{r Relating Bathrooms and Bedrooms to Price}
 bathroom_price <- housing%>%select(price, bathrooms)
 bathroom_price$bathrooms <-as.factor(bathroom_price$bathrooms)
