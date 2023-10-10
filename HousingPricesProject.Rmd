@@ -63,10 +63,11 @@ kcmap <- wa_base + theme_nothing() +
 
 king_county <- subset(wa_county, subregion == "king")
 
-wa_base + theme_void() +
+finalmap <- wa_base + theme_void() +
 geom_polygon(data = wa_county, fill = NA, color = "white") +
 geom_polygon(color = "black", fill = NA) +
 geom_polygon(data = king_county, fill = "mediumslateblue", color = "white")
+print(finalmap)
 ```
 
 ```{r Creation of a Scatterplot Matrix of the Dataset}
