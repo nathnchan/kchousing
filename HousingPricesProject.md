@@ -115,10 +115,11 @@ kcmap <- wa_base + theme_nothing() +
 
 king_county <- subset(wa_county, subregion == "king")
 
-wa_base + theme_void() +
+finalmap <- wa_base + theme_void() +
 geom_polygon(data = wa_county, fill = NA, color = "white") +
 geom_polygon(color = "black", fill = NA) +
 geom_polygon(data = king_county, fill = "mediumslateblue", color = "white")
+print(finalmap)
 ```
 
 ![](HousingPricesProject_files/figure-gfm/Washington%20State%20Map-1.png)<!-- -->
