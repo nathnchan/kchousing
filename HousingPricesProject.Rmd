@@ -2,7 +2,7 @@
 ztitle: "HousingPricesProject"
 author: "Nathan Chan"
 date: "2023-09-13"
-output: html_document
+output: rmarkdown::github_document
 ---
 
 ```{r setup, include=FALSE}
@@ -190,23 +190,8 @@ ggplot(housing, aes(x = log(lot), y = price)) +
 ```
 
 ```{r Fixing Basement}
+housing3 <- housing
 housing3$basement <- housing3$basement + 1
-```
-
-```{r Basement Size + Zipcode Area}
-custom_colors <- c("mediumslateblue", "darkslateblue")
-
-ggplot(data = housing3, aes(x = basement, fill = zipcodeArea)) +
-  geom_histogram(binwidth = 300, color = "black") +
-  labs(title = "",
-       x = "Basement Sizes in Square Feet",
-       y = "Number of Basements",
-       fill = NULL) +
-  scale_fill_manual(values = custom_colors) +
-  theme_minimal() +
-  theme_fivethirtyeight() +
-  theme(panel.grid = element_blank()) + 
-  theme(axis.title = element_text())
 ```
 
 ```{r Relating Bathrooms and Bedrooms to Price}
@@ -341,6 +326,22 @@ for (i in 1:nrow(housing3)) {
 }
 housing3$zipcodeArea <- as.factor(housing3$zipcodeArea)
 housing3
+```
+
+```{r Basement Size + Zipcode Area}
+custom_colors <- c("mediumslateblue", "darkslateblue")
+
+ggplot(data = housing3, aes(x = basement, fill = zipcodeArea)) +
+  geom_histogram(binwidth = 300, color = "black") +
+  labs(title = "",
+       x = "Basement Sizes in Square Feet",
+       y = "Number of Basements",
+       fill = NULL) +
+  scale_fill_manual(values = custom_colors) +
+  theme_minimal() +
+  theme_fivethirtyeight() +
+  theme(panel.grid = element_blank()) + 
+  theme(axis.title = element_text())
 ```
 
 ```{r First Model}
