@@ -1,5 +1,7 @@
 # Housing Price Analysis
 
+View the published document on [Rpubs](https://rpubs.com/nathchan/1098465).
+
 ## Introduction
 
 Washington is a state known for its diverse landscapes, vibrant cities, and a strong economy. It offers a wide range of housing options, from urban apartments to suburban homes, and even rural properties. The decision to move to Washington involves various factors, and one of the most critical considerations is the cost of housing.
