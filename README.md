@@ -47,21 +47,5 @@ The main objectives of this analysis are as follows:
 
 ## Methodology
 
-The analysis will be conducted using various statistical techniques, including data visualization, regression analysis, and other modeling methods. The findings will be presented in a clear and understandable manner, enabling my parents to make an informed decision about their potential move to Washington.
+The analysis will be conducted using various statistical techniques and exploratory data analysis, including data visualization, regression analysis, and other modeling methods. The findings will be presented in a clear and understandable manner.
 
-## Repository Structure
-
-- `data/`: Contains the dataset used for the analysis.
-- `notebooks/`: Jupyter notebooks that document the analysis process.
-- `results/`: Any relevant figures, tables, or data outputs.
-- `README.md`: You are here - an overview of the project and its objectives.
-
-## Getting Started
-
-If you're interested in exploring the analysis, you can follow the Jupyter notebooks provided in the `notebooks/` directory. Each notebook is dedicated to one of the analysis objectives.
-
-## Conclusion
-
-This housing price analysis is aimed at helping my parents, and potentially others, make informed decisions about moving to Washington. By understanding the housing market trends and key factors influencing housing prices, we hope to provide valuable insights that will guide their decision-making process.
-
-Your feedback and contributions are welcome, as they can further enhance the analysis and make it more valuable to others considering a move to Washington.
