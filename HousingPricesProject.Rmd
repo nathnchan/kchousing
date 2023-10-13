@@ -1,6 +1,6 @@
 ---
-ztitle: "HousingPricesProject"
-author: "Nathan Chan"
+title: "Housing Prices in King County, Washington"
+author: "Nathan Chan\n"
 date: "2023-09-13"
 output: rmarkdown::github_document
 ---
@@ -11,6 +11,33 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r Reading in Data and Setting up}
 housing <- read.csv("kc_housing.csv", stringsAsFactors = TRUE)
+```
+
+```{r Fixing Basement, echo = FALSE}
+housing3 <- housing
+housing3$basement <- housing3$basement + 1
+```
+
+```{r echo = FALSE}
+housing3$zipcodeArea <- NA
+
+for (i in 1:nrow(housing3)) {
+  if (housing3$zipcode[i] %in% c("98177", "98133", "98155", 
+                                 "98125", "98117", "98103",
+                                 "98115", "98107", "98105",
+                                 "98199", "98119", "98109",
+                                 "98102", "98112", "98122",
+                                 "98121", "98101", "98154",
+                                 "98104", "98144", "98134",
+                                 "98106", "98126", "98116",
+                                 "98136", "98108", "98118",
+                                 "98146", "98168", "98178")) {
+    housing3$zipcodeArea[i] <- "Downtown Seattle"
+  } else {
+    housing3$zipcodeArea[i] <- "Other"
+  }
+}
+housing3$zipcodeArea <- as.factor(housing3$zipcodeArea)
 ```
 
 This data set includes the following variables:
@@ -34,7 +61,7 @@ This data set includes the following variables:
 - `lot15`: average size of the lot for the 15 nearest neighbors (in square feet)
 - `renovated`: was the house renovated in the previous 25 years? (yes or no)
 
-```{r Libraries}
+```{r Libraries, message = FALSE}
 library("car")
 library("ggmap")
 library("ggplot2")
@@ -42,12 +69,14 @@ library("mapdata")
 library("maps")
 library("dplyr")
 library("ggthemes")
+library("knitr")
+library("kableExtra")
+library("cowplot")
 ```
 
 
-```{r Washington State Map}
+```{r Washington State Map, echo = FALSE}
 states <- map_data("state")
-head(states)
 
 wa_df <- subset(states,region%in%"washington")
 
@@ -70,32 +99,118 @@ geom_polygon(data = king_county, fill = "mediumslateblue", color = "white")
 print(finalmap)
 ```
 
-```{r Creation of a Scatterplot Matrix of the Dataset}
+>King County is a prominent and populous county located in the 
+Pacific Northwest region of the United States. It is situated in the western 
+part of the state and encompasses the city of Seattle, the largest city in 
+Washington. The county is also known for its stunning natural beauty, including Puget Sound, Cascade Range, and Mount Rainier. On this map, King County is highlighted in purple.
+
+>Let's take a look at some different scatterplots that relate some of our variables to price, so we can get a high level understanding of some of the potential relationships we may have here.
+
+```{r Creation of a Scatterplot Matrix of the Dataset, echo = FALSE}
 pairs(housing[,c("price", "lot", "basement", "living", "living15", "lot15")])
-pairs(housing[,c("price", "bedrooms", "bathrooms", "view", "waterfront", "zipcode")])
-pairs(housing[,c("price", "above", "floors", "bedrooms", "bathrooms")])
-pairs(housing[,c("price", "condition", "renovated")])
 ```
 
-```{r Price per Zipcode}
-length(unique(housing$zipcode))
+>I think that it is interesting that the number of bathrooms is not as clear cut as the number of bedrooms. This may indicate some half bathrooms and even quarter bathrooms (which I didn’t know was even a thing!). 
+
+```{r echo = FALSE}
+pairs(housing[,c("price", "bedrooms", "bathrooms", "view", "waterfront", "zipcode")])
+```
+
+>I think that it is interesting that the number of bathrooms is not as clear cut as the number of bedrooms. This may indicate some half bathrooms and even quarter bathrooms (which I didn’t know was even a thing!). When it comes to the views and presence of a waterfront, it appears that a higher rated view and being on a waterfront raises the price ceiling. 
+
+
+```{r echo = FALSE}
+pairs(housing[,c("price", "above", "floors",  "condition", "renovated")])
+```
+
+>The above variable also aligns with the "living" variable given that not many of these housing units have basements and that they could be smaller apartments. What is surprising is that the condition of the housing unit as well as if the housing unit has been renovated appears to not make a difference in price at first. I think this may be because a lot of the buildings in this county are much newer. This is something we will check on later. 
+
+>Something that I want to look at are the average home prices within each zipcode, as real estate markets are highly localized. Different zipcodes within a city or region can exhibit varying property values due to factors like neighborhood amenities, school quality, proximity to job centers, and overall desirability.
+
+```{r Price per Zipcode, echo = FALSE}
 zipcode_prices <- housing%>%select("price", "zipcode")
-price_per_zipcode <- zipcode_prices%>%group_by(zipcode)%>%summarise(avghouseprice
-                                                                    = mean(price))
+price_per_zipcode <- zipcode_prices%>%group_by(zipcode)%>%
+  summarise(avghouseprice = mean(price))
 price_per_zipcode_ordered <- price_per_zipcode%>%arrange(desc(avghouseprice))
+names(price_per_zipcode_ordered) <- c("Zipcode", "Average House Price")
 head(price_per_zipcode_ordered)
 tail(price_per_zipcode_ordered)
 ```
 
-```{r Histograms}
-hist(housing$price,col="mediumslateblue")
-hist(housing$lot,col="mediumslateblue")
-hist(housing$basement,col="mediumslateblue")
-hist(housing$living,col="mediumslateblue")
-hist(housing$zipcode,col="mediumslateblue")
-hist(housing$bathrooms,col="mediumslateblue")
+>Taking a look at the top 6 most expensive zipcodes in this dataset, we see the areas: Medina, Mercer Island, and Kirkland. All of these areas have a high cost of living, with Medina even having a cost of living that is 120% greater than the national average! They all have desirable qualities such as being near water and having a close proximity to Seattle for those who want easy access to the city. On the other hand the 6 least expensive zipcodes in this dataset host cities such as Tukwila, Burien, and SeaTac where these cities are actually slightly below the national average cost of living. When looking at location, these cities are not near the water as well as being much further from Seattle which could explain the urban effect not being as prominent as the top 6.
 
-ggplot(data = housing, aes(x = price, fill = "")) +
+>I wanted to take a closer look at some of the frequencies we see for some of our variables, so I constructed a few histograms:
+
+```{r Histograms, echo = FALSE}
+
+plot1<-ggplot(data = housing, aes(x = bathrooms, fill = "")) +
+  geom_histogram(binwidth = 1, color = "black") +
+  scale_fill_manual(values = "mediumslateblue") +
+  labs(title = "Histogram of Number of Bathrooms in a House",
+       x = "Number of Bathrooms",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  theme(axis.title = element_text()) +
+  theme(text = element_text(size = 12))
+
+plot2<-ggplot(data = housing, aes(x = zipcode, fill = "")) +
+  geom_histogram(binwidth = 7, color = "black") +
+  scale_fill_manual(values = "mediumslateblue") +
+  labs(title = "Histogram of Zipcodes",
+       x = "Zipcode",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  theme(axis.title = element_text())
+
+plot3<-ggplot(data = housing, aes(x = living, fill = "")) +
+  geom_histogram(binwidth = 250, color = "black") +
+  scale_fill_manual(values = "mediumslateblue") +
+  labs(title = "Histogram of Living Space Sizes",
+       x = "Living Space (sqft)",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  theme(axis.title = element_text())
+
+plot4<-ggplot(data = housing, aes(x = basement, fill = "")) +
+  geom_histogram(binwidth = 250, color = "black") +
+  scale_fill_manual(values = "mediumslateblue") +
+  labs(title = "Histogram of Basement Sizes",
+       x = "Basement Size (sqft)",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  theme(axis.title = element_text())
+
+plot5<-ggplot(data = housing, aes(x = lot, fill = "")) +
+  geom_histogram(binwidth = 10000, color = "black") +
+  scale_fill_manual(values = "mediumslateblue") +
+  labs(title = "Histogram of Lot Size",
+       x = "Lot Size (sqft)",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_x_continuous(labels = scales::number_format(accuracy = 1)) +
+  theme_fivethirtyeight() +
+  theme(legend.position = "none") +
+  theme(axis.title = element_text())
+
+
+plot6<-ggplot(data = housing, aes(x = price, fill = "")) +
   geom_histogram(binwidth = 250000, color = "black") +
   scale_fill_manual(values = "mediumslateblue") +
   labs(title = "Histogram of Price",
@@ -108,7 +223,7 @@ ggplot(data = housing, aes(x = price, fill = "")) +
   theme(legend.position = "none") +
   theme(axis.title = element_text())
 
-ggplot(data = housing, aes(x = year, fill = "")) +
+plot7<-ggplot(data = housing, aes(x = year, fill = "")) +
   geom_histogram(binwidth = 5, color = "black") +
   scale_fill_manual(values = "mediumslateblue") +
   labs(title = "Histogram of Years Constructed",
@@ -121,14 +236,20 @@ ggplot(data = housing, aes(x = year, fill = "")) +
   theme(axis.title = element_text())
 ```
 
-```{r Individual Histograms of log(Variables)}
-hist(log(housing$lot),col="mediumslateblue")
-hist(log(housing$basement),col="mediumslateblue")
-hist(log(housing$living),col="mediumslateblue")
-hist(log(housing$price),col="mediumslateblue")
+```{r Printing Plots, echo = FALSE}
+plot1
+plot2
+plot3
+plot4
+plot5
+plot6
 ```
 
-```{r Price v. Basement Size}
+> Some takeaways I have from these histograms is that the houses in this dataset are fairly evenly distributed amongst the zipcodes which could indicate this being an accurate representation. Also, many of the houses are built fairly similarily with the lot sizes being much smaller and the living spaces taking up a large portion of the lot. This indicates that there is not much space for a backyard or frontyard and usage of parks is probably standard which could lead to an increase cost of living due to taxes for upkeep of public spaces. While speaking about lot sizes, it also noted that there are a few outliers here that have a square footage of around half a million. The price of houses in Washington are also significantly more expensive than my hometown as majority of the homes are in the 7 figure range. 
+
+>I am thinking about tossing out the basement variable entirely after also doing a quick search about houses not having basements on the West Coast (which is somewhat unusual coming from a Midwest perspective). Nonetheless, just to confirm I wanted to look at its relationship with price.
+
+```{r Price v. Basement Size, echo = FALSE}
 price_basement_lm <- lm(price ~ basement, data = housing)
 r_squared_basement <- summary(price_basement_lm)$r.squared
 
@@ -137,7 +258,6 @@ ggplot(housing, aes(x = basement, y = price)) +
   labs(x = "Basement Size", y = "Price") +
   ggtitle("Price vs. Basement Size") +
   scale_y_continuous(labels = scales::comma) +
-  geom_smooth(method = "lm", se = FALSE, color = "blueviolet") +
   theme_fivethirtyeight() +
   geom_text(aes(label = paste("R-squared = ", round(r_squared_basement, 2)), x = max(basement), y = min(price)), hjust = 1) +
   theme(panel.grid = element_blank()) + 
@@ -145,37 +265,42 @@ ggplot(housing, aes(x = basement, y = price)) +
   theme(axis.title = element_text())
 ```
 
-```{r Price v. Living Room Size of 15 Nearest Neighbors}
+```{r Basement Size + Zipcode Area, echo = FALSE}
+custom_colors <- c("mediumslateblue", "darkslateblue")
+
+ggplot(data = housing3, aes(x = basement, fill = zipcodeArea)) +
+  geom_histogram(binwidth = 300, color = "black") +
+  labs(title = "",
+       x = "Basement Sizes in Square Feet",
+       y = "Number of Basements",
+       fill = NULL) +
+  scale_fill_manual(values = custom_colors) +
+  theme_minimal() +
+  theme_fivethirtyeight() +
+  theme(panel.grid = element_blank()) + 
+  theme(axis.title = element_text())
+```
+
+>As seen here, there is very little correlation between the two due to there actually being no basement in many homes, as stated before. I think we can rule this variable out. 
+
+```{r Price v. Living Room Size of 15 Nearest Neighbors, echo = FALSE}
 ggplot(housing, aes(x = living15, y = price)) +
   geom_point() +
-  labs(x = "Living Room Size of 15 Nearest Neighbors", y = "Price") +
+  labs(x = "Living Room Size of 15 Nearest Neighbors (sqft)", y = "Price") +
   ggtitle("Price vs. Living Room Size of 15 Nearest Neighbors") +
   scale_y_continuous(labels = scales::comma) +
-  geom_smooth(method = "gam", se = FALSE, 
-              color = "blueviolet") +
   theme(panel.background = element_blank(), panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank()) +
   theme_fivethirtyeight() +
   theme(panel.grid = element_blank()) + 
   theme(legend.position = "none") +
-  theme(axis.title = element_text())
+  theme(axis.title = element_text()) +
+  theme(plot.title = element_text(size = 15, hjust = 0))
 ```
 
-```{r Price v. Number of Bathrooms}
-ggplot(housing, aes(x = bathrooms, y = price)) +
-  geom_point() +
-  labs(x = "Number of Bathrooms", y = "Price") +
-  ggtitle("Price vs. Number of Bathrooms") +
-  scale_y_continuous(labels = scales::comma) +
-  geom_smooth(method = "gam", se = FALSE, 
-              color = "blueviolet") +
-  theme_fivethirtyeight() +
-  theme(panel.grid = element_blank()) + 
-  theme(legend.position = "none") +
-  theme(axis.title = element_text())
-```
+>It appears that price and the living room size of the nearest 15 neighbors have a little bit of a quadratic relationship which we will account for in the model. 
 
-```{r Price v. Lot Size}
+```{r Price v. Lot Size, echo = FALSE}
 ggplot(housing, aes(x = log(lot), y = price)) +
   geom_point() +
   labs(x = "Log of Lot Size", y = "Price") +
@@ -190,12 +315,9 @@ ggplot(housing, aes(x = log(lot), y = price)) +
   theme(axis.title = element_text())
 ```
 
-```{r Fixing Basement}
-housing3 <- housing
-housing3$basement <- housing3$basement + 1
-```
+>Also noted earlier, the histogram of lot size was extremely right skewed. I conducted a log transformation to make the distribution appear more normal. This will also be accounted for in the model. 
 
-```{r Relating Bathrooms and Bedrooms to Price}
+```{r Relating Bathrooms and Bedrooms to Price, echo = FALSE}
 bathroom_price <- housing%>%select(price, bathrooms)
 bathroom_price$bathrooms <-as.factor(bathroom_price$bathrooms)
 
@@ -221,16 +343,20 @@ ggplot(bedroom_price, aes(x = bedrooms, y = price)) +
   theme(axis.title = element_text())
 ```
 
-```{r Checking for Bathroom and Bedroom Interaction}
+>It appears that there is a positive relationship with the number of bathrooms and price of a house, but for the bedrooms it appears to not have that much of a relationship, which makes me wonder if there is an interaction between these two. Why would you want to have a house with 6 bedrooms when you only have 2 bathrooms?
+
+```{r Checking for Bathroom and Bedroom Interaction, echo = FALSE}
 summary(lm(price ~ bedrooms * bathrooms, data = housing))
 ```
 
-```{r Waterfront Presence Adjustment}
+>The summary shows that there is a possible interaction between number of bedrooms and bathrooms, as the statistically significant demonstrates as proof.
+
+```{r Waterfront Presence Adjustment, echo = FALSE}
 no_water_over_million <- housing %>% filter(waterfront == "no", price >= 1000000) %>% group_by(zipcode)%>%summarise(avg_price_no_water_over_million=mean(price)) %>% arrange(desc(avg_price_no_water_over_million))
 no_water_over_million
 ```
 
-```{r Waterfront Boxplot}
+```{r Waterfront Boxplot, echo = FALSE}
 ggplot(housing, aes(x = waterfront, y = price)) +
   geom_boxplot(fill = "lightslateblue", color = "black", width = 0.5) +
   labs(title = "Boxplot of Price by Waterfront Presence", x = "Waterfront Presence", y = "Price") +
@@ -241,7 +367,9 @@ ggplot(housing, aes(x = waterfront, y = price)) +
   theme(axis.text.x = element_text(size = 12))
 ```
 
-```{r Renovation Boxplot}
+> As seen earlier with the zipcodes, the zipcodes where there was a possibility for owning a house on a waterfront were much more expensive than ones that weren't. This boxplot also confirms that statement due to the median price being much higher for homes on a waterfront. 
+
+```{r Renovation Boxplot, echo = FALSE}
 ggplot(housing, aes(x = renovated, y = price)) +
   geom_boxplot(fill = "lightslateblue", color = "black", width = 0.5) +
   labs(title = "Boxplot of Price by Renovation", x = "Renovation", y = "Price") +
@@ -256,27 +384,9 @@ ggplot(housing, aes(x = renovated, y = price)) +
   theme(axis.title = element_text())
 ```
 
-```{r Price v Year}
-price_year_lm <- lm(price ~ year, data = housing)
-r_squared_year <- summary(price_year_lm)$r.squared
+> Renovations appear to not make a difference in price. Maybe the houses are relatively new. Let's check. 
 
-ggplot(housing, aes(x = year, y = price)) +
-  geom_point() +
-  labs(x = "Year", y = "Price") +
-  ggtitle("Price vs. Year Constructed") +
-  scale_y_continuous(labels = scales::comma) +
-  geom_smooth(method = "loess", se = FALSE, color = "blueviolet") +
-  theme(panel.background = element_blank(), panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank()) +
-  geom_text(aes(label = paste("R-squared = ", round(r_squared_year, 2)), x = max(year), 
-                y = min(price)), hjust = 1) +
-  theme_fivethirtyeight() +
-  theme(panel.grid = element_blank()) + 
-  theme(legend.position = "none") +
-  theme(axis.title = element_text())
-```
-
-```{r Renovation and Construction Date}
+```{r Renovation and Construction Date, echo = FALSE}
 custom_colors <- c("mediumslateblue", "darkslateblue")
 
 ggplot(data = housing, aes(x = year, fill = renovated)) +
@@ -293,59 +403,65 @@ ggplot(data = housing, aes(x = year, fill = renovated)) +
   theme(axis.title = element_text())
 ```
 
-```{r Boxplot of Price by View Rating}
+>Looking from the 1950s and onwards, it appears that there has been an increase in construction. However, it appears that houses in genereal haven't been renovated as seen with the homes built before 1950.
+
+```{r Boxplot of Price by View Rating, , echo = FALSE}
 view_price <- housing%>%select(price, view)
 view_price$view <-as.factor(view_price$view)
 
 ggplot(view_price, aes(x = view, y = price)) +
   geom_boxplot(fill = "lightslateblue", color = "black", width = 0.5) +
   labs(title = "Boxplot of Price by View Rating", x = "View Rating", y = "Price") +
+  scale_y_continuous(labels = scales::comma) +
   theme_fivethirtyeight() +
   theme(panel.grid = element_blank()) + 
   theme(legend.position = "none") +
   theme(axis.title = element_text())
 ```
 
-```{r Zipcode and Lot Size}
-housing3$zipcodeArea <- NA
+>It appears that the view rating has a slightly positive correlation with the price of homes. I wanted to group the zipcodes into two different areas: Downtown Seattle and Other. I made a new column called Zipcode Area
 
-for (i in 1:nrow(housing3)) {
-  if (housing3$zipcode[i] %in% c("98177", "98133", "98155", 
-                                 "98125", "98117", "98103",
-                                 "98115", "98107", "98105",
-                                 "98199", "98119", "98109",
-                                 "98102", "98112", "98122",
-                                 "98121", "98101", "98154",
-                                 "98104", "98144", "98134",
-                                 "98106", "98126", "98116",
-                                 "98136", "98108", "98118",
-                                 "98146", "98168", "98178")) {
-    housing3$zipcodeArea[i] <- "Downtown Seattle"
-  } else {
-    housing3$zipcodeArea[i] <- "Other"
-  }
-}
-housing3$zipcodeArea <- as.factor(housing3$zipcodeArea)
-housing3
+```{r Zipcode and Lot Size, echo = FALSE}
+head(housing3)
 ```
 
-```{r Basement Size + Zipcode Area}
-custom_colors <- c("mediumslateblue", "darkslateblue")
+```{r graph for abv, echo = FALSE}
+housing31 <- housing3 %>% filter(!(lot>400000))
 
-ggplot(data = housing3, aes(x = basement, fill = zipcodeArea)) +
-  geom_histogram(binwidth = 300, color = "black") +
-  labs(title = "",
-       x = "Basement Sizes in Square Feet",
-       y = "Number of Basements",
-       fill = NULL) +
-  scale_fill_manual(values = custom_colors) +
-  theme_minimal() +
+ggplot(housing31, aes(x = zipcodeArea, y = lot)) +
+  geom_boxplot(fill = "lightslateblue", color = "black", width = 0.5) +
+  labs(title = "Boxplot of Lot Sizes by Zipcode Area", x = "Area", y = "Lot Size (sqft)") +
+  scale_y_continuous(labels = scales::comma) +
   theme_fivethirtyeight() +
   theme(panel.grid = element_blank()) + 
+  theme(legend.position = "none") +
   theme(axis.title = element_text())
 ```
 
-```{r First Model}
-model1 <-lm(price ~ living + waterfront + basement*zipcodeArea + log(lot) + I(living15^2) + year + bathrooms*bedrooms, data = housing3)
+>It looks like there is a small difference between Downtown Seattle and other areas when looking at lot size. There are no observations in Downtown Seattle that are above 100,000 square feet. This could be most likely due to construction guidelines.
+
+>After some exploratory data analysis, I am ready to construct a model:
+
+```{r Model}
+model1 <-lm(price ~ living + waterfront + zipcodeArea + log(lot) + I(living15^2) + year + bathrooms*bedrooms, data = housing3)
 summary(model1)
 ```
+>An adjusted R-squared value of 0.8023 (or 80.23%) suggests that approximately 80.23% of the variability in the dependent variable is explained by the independent variables included in the regression model. In other words, the model accounts for about 80.23% of the variance in the data. Not bad. The p-value is also very small (2.2e16) which indicates statistical significance. 
+
+```{r Multicollinearity Check}
+vif(model1)
+```
+
+>Using the vif function, I can see that there is limited multicollinearity except the variables regarding bathrooms and bedrooms. Logically this makes sense, as a home with more bedrooms is more likely to have more bathrooms to match. Let's see if removing the interaction or one of the variables makes a better model. 
+
+```{r Checking Other Models without Interaction or Bedroom Variable, echo = FALSE}
+model2 <-lm(price ~ living + waterfront + zipcodeArea + log(lot) + 
+              I(living15^2) + year + bathrooms + bedrooms, data = housing3)
+summary(model2)
+
+model3 <-lm(price ~ living + waterfront + zipcodeArea + log(lot) + 
+              I(living15^2) + year + bathrooms, data = housing3)
+summary(model3)
+```
+
+>Looking at the adjusted R-squared value we see for the removal of the interaction, it is 0.7936 and for removal of the bedrooms variable it is 0.7912. Both are slightly lower than the original model, but nonetheless lower. I am going to make the decision to keep the interaction in the model as it has a high adjusted R-squared, and I believe it shows a difference in price with number of bedrooms that would not have been uncovered before. 
